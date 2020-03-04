@@ -84,17 +84,17 @@ class LossValueMetric(mx.metric.EvalMetric):
 def parse_args():
   parser = argparse.ArgumentParser(description='Train face network')
   # general
-  parser.add_argument('--data-dir', default='', help='training set directory')
-  parser.add_argument('--prefix', default='../model/model', help='directory to save model.')
-  parser.add_argument('--pretrained', default='', help='pretrained model to load')
+  parser.add_argument('--data-dir', default='', help='training set directory')#制作的训练样本train.rec文件所在的文件夹
+  parser.add_argument('--prefix', default='../model/model', help='directory to save model.')#指定将来模型训练好之后保存到哪个位置
+  parser.add_argument('--pretrained', default='', help='pretrained model to load')#所使用的作者提供的预训练模型路径和名称
   parser.add_argument('--ckpt', type=int, default=1, help='checkpoint saving option. 0: discard saving. 1: save when necessary. 2: always save')
-  parser.add_argument('--loss-type', type=int, default=4, help='loss type')
-  parser.add_argument('--verbose', type=int, default=2000, help='do verification testing and model saving every verbose batches')
+  parser.add_argument('--loss-type', type=int, default=4, help='loss type')#所希望使用的loss种类，分别是1)原始的softmax、2）SphereFace；3）cosineface；4）arcface；5）各种loss结合版本
+  parser.add_argument('--verbose', type=int, default=2000, help='do verification testing and model saving every verbose batches')#每隔多少个iteration做一次验证并保存模型
   parser.add_argument('--max-steps', type=int, default=0, help='max training batches')
   parser.add_argument('--end-epoch', type=int, default=100000, help='training epoch size.')
-  parser.add_argument('--network', default='r50', help='specify network')
+  parser.add_argument('--network', default='r50', help='specify network')#network表示使用何种网络模型，在路径"src"=>"symbols"文件夹下有不同的模型，并且在代码中也用get_symbol()函数中定义了不同的模型，可以根据自己的需求使用，这里作者默认为resnet50
   parser.add_argument('--image-size', default='112,112', help='specify input image height and width')
-  parser.add_argument('--version-se', type=int, default=0, help='whether to use se in network')
+  parser.add_argument('--version-se', type=int, default=0, help='whether to use se in network')#是否使用se网路结构
   parser.add_argument('--version-input', type=int, default=1, help='network input config')
   parser.add_argument('--version-output', type=str, default='E', help='network embedding output config')
   parser.add_argument('--version-unit', type=int, default=3, help='resnet unit config')
@@ -110,8 +110,8 @@ def parse_args():
   parser.add_argument('--bn-mom', type=float, default=0.9, help='bn mom')
   parser.add_argument('--mom', type=float, default=0.9, help='momentum')
   parser.add_argument('--emb-size', type=int, default=512, help='embedding length')
-  parser.add_argument('--per-batch-size', type=int, default=128, help='batch size in each context')
-  parser.add_argument('--margin-m', type=float, default=0.5, help='margin for loss')
+  parser.add_argument('--per-batch-size', type=int, default=128, help='batch size in each context')#设置batchsize的大小
+  parser.add_argument('--margin-m', type=float, default=0.5, help='margin for loss')#设置特征归一化后的大小和margin的大小
   parser.add_argument('--margin-s', type=float, default=64.0, help='scale for feature')
   parser.add_argument('--margin-a', type=float, default=1.0, help='')
   parser.add_argument('--margin-b', type=float, default=0.0, help='')
@@ -127,7 +127,7 @@ def parse_args():
   parser.add_argument('--cutoff', type=int, default=0, help='cut off aug')
   parser.add_argument('--color', type=int, default=0, help='color jittering aug')
   parser.add_argument('--images-filter', type=int, default=0, help='minimum images per identity filter')
-  parser.add_argument('--target', type=str, default='lfw,cfp_fp,agedb_30', help='verification targets')
+  parser.add_argument('--target', type=str, default='lfw,cfp_fp,agedb_30', help='verification targets')#target表示验证数据。作者原始使用了lfw、cfp、agedb三种验证集，这里的target一定得有，不然网络训练中是不会保存模型的
   parser.add_argument('--ce-loss', default=False, action='store_true', help='if output ce loss')
   args = parser.parse_args()
   return args
@@ -137,11 +137,11 @@ def get_symbol(args, arg_params, aux_params):
   data_shape = (args.image_channel,args.image_h,args.image_w)
   image_shape = ",".join([str(x) for x in data_shape])
   margin_symbols = []
-  if args.network[0]=='d':
+  if args.network[0]=='d':#DenseNet
     embedding = fdensenet.get_symbol(args.emb_size, args.num_layers,
         version_se=args.version_se, version_input=args.version_input, 
         version_output=args.version_output, version_unit=args.version_unit)
-  elif args.network[0]=='m':
+  elif args.network[0]=='m':#mobilenet
     print('init mobilenet', args.num_layers)
     if args.num_layers==1:
       embedding = fmobilenet.get_symbol(args.emb_size, 
@@ -150,7 +150,7 @@ def get_symbol(args, arg_params, aux_params):
           version_multiplier = args.version_multiplier)
     else:
       embedding = fmobilenetv2.get_symbol(args.emb_size)
-  elif args.network[0]=='i':
+  elif args.network[0]=='i':#inception-resnet
     print('init inception-resnet-v2', args.num_layers)
     embedding = finception_resnet_v2.get_symbol(args.emb_size,
         version_se=args.version_se, version_input=args.version_input, 
@@ -180,7 +180,7 @@ def get_symbol(args, arg_params, aux_params):
         version_se=args.version_se, version_input=args.version_input, 
         version_output=args.version_output, version_unit=args.version_unit,
         version_act=args.version_act)
-  all_label = mx.symbol.Variable('softmax_label')
+  all_label = mx.symbol.Variable('softmax_label')#新建占位符
   gt_label = all_label
   extra_loss = None
   _weight = mx.symbol.Variable("fc7_weight", shape=(args.num_classes, args.emb_size), lr_mult=args.fc7_lr_mult, wd_mult=args.fc7_wd_mult)
@@ -479,7 +479,7 @@ def train_net(args):
         ver_name_list.append(name)
         print('ver', name)
 
-
+      
 
     def ver_test(nbatch):
       results = []
