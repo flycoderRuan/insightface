@@ -97,7 +97,7 @@ class LossValueMetric(mx.metric.EvalMetric):
 def parse_args():
   parser = argparse.ArgumentParser(description='Train face network')
   # general
-  parser.add_argument('--data-dir', default='', help='training set directory')#制作的训练样本train.rec文件所在的文件夹
+  parser.add_argument('--data_dir', default='', help='training set directory')#制作的训练样本train.rec文件所在的文件夹
   parser.add_argument('--prefix', default='../model/model', help='directory to save model.')#指定将来模型训练好之后保存到哪个位置
   parser.add_argument('--pretrained', default='', help='pretrained model to load')#所使用的作者提供的预训练模型路径和名称
   parser.add_argument('--ckpt', type=int, default=1, help='checkpoint saving option. 0: discard saving. 1: save when necessary. 2: always save')
