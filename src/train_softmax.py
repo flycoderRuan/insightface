@@ -34,6 +34,19 @@ import sklearn
 #sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
 #import center_loss
 
+# 第一步：各种参数变量的声明，比如图片的尺寸，通道数量等等。
+
+# 第二步：调用get_symbols函数得到网络结构sym，因为MXNet主要是符号(Symbol)编程，网络结构由各种符号组成。
+
+# 第三步：初始化FaceImageIter数据迭代器，初始化各类迭代用的参数，比如batch_size等等
+
+# 第四步：初始化评价函数AccMetric
+
+# 第五步：神经网络初始化，调用mx.init.Xavier，我理解是和tf.Session一样的东西
+
+# 第六步：定义优化器，他定义的是SGD
+
+# 第七步：开始迭代，用Batch_callback的方法迭代每个batch，在参数verbose的整数倍下计算测试集准确率并更新参数
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -132,7 +145,11 @@ def parse_args():
   args = parser.parse_args()
   return args
 
-
+#get_symbol流程：
+# 根据ResNet50的结构构建主体网络计算图，输入112×112×3的图像，输出是embedding，512维度
+#初始化类别空间
+#计算CosFace Loss
+#将fc7和真值放入传统Softmax中输出得到结果
 def get_symbol(args, arg_params, aux_params):
   data_shape = (args.image_channel,args.image_h,args.image_w)
   image_shape = ",".join([str(x) for x in data_shape])
@@ -197,15 +214,20 @@ def get_symbol(args, arg_params, aux_params):
                           beta=args.beta, margin=args.margin, scale=args.scale,
                           beta_min=args.beta_min, verbose=1000, name='fc7')
   elif args.loss_type==2:
+    # 两个参数，s和m
     s = args.margin_s
     m = args.margin_m
     assert(s>0.0)
     assert(m>0.0)
+    # 对X和W进行L2正则
     _weight = mx.symbol.L2Normalization(_weight, mode='instance')
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')*s
+    # fc7得到的结果即为s*cos，映射到类别空间，得到各个类别的分值
     fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=args.num_classes, name='fc7')
     s_m = s*m
+    # 将真值映射到one-hot类别空间
     gt_one_hot = mx.sym.one_hot(gt_label, depth = args.num_classes, on_value = s_m, off_value = 0.0)
+    # 预测得分与真值one-hot进行作差
     fc7 = fc7-gt_one_hot
   elif args.loss_type==4:
     s = args.margin_s

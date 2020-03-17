@@ -430,6 +430,17 @@ def residual_unit_v3_x(data, num_filter, stride, dim_match, name, bottle_neck, *
     act_type = kwargs.get('version_act', 'prelu')
     num_group = 32
     #print('in unit3')
+
+    # bn1 = 对data进行BatchNormal
+    # conv1 = 对bn1进行filter，3×3的卷积层
+    # bn2 = 对conv1进行BatchNormal
+    # act1 = prelu(bn2)
+    # conv2 = 对act1进行filter，3×3的卷积
+    # bn3 = 对conv2进行BatchNormal
+    # if dim_match==True: shortcut = data，即准备好残差中的shortcut
+    # elif dim_match!=True: conv1sc = 对data进行filter,(1×1)的卷积，shortcut=对conv1sc进行BatchNorm
+    # 最终输出bn3 + shortcut
+
     bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1')
     conv1 = Conv(data=bn1, num_group=num_group, num_filter=int(num_filter*0.5), kernel=(1,1), stride=(1,1), pad=(0,0),
                                no_bias=True, workspace=workspace, name=name + '_conv1')
@@ -455,6 +466,7 @@ def residual_unit_v3_x(data, num_filter, stride, dim_match, name, bottle_neck, *
       bn4 = mx.symbol.broadcast_mul(bn4, body)
       #se end
 
+    # dim_match(true:输入和输出通道一致；flase:不一致)
     if dim_match:
         shortcut = data
     else:
@@ -510,16 +522,23 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck, **kwargs):
     print(version_se, version_input, version_output, version_unit, act_type)
     num_unit = len(units)
     assert(num_unit == num_stages)
+
+    # 初始化一个data符号
+    
     data = mx.sym.Variable(name='data')
     if version_input==0:
       #data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data')
       data = mx.sym.identity(data=data, name='id')
       data = data-127.5
       data = data*0.0078125
+      # Filter=64，初始化的卷积
       body = Conv(data=data, num_filter=filter_list[0], kernel=(7, 7), stride=(2,2), pad=(3, 3),
                                 no_bias=True, name="conv0", workspace=workspace)
       body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0')
       body = Act(data=body, act_type=act_type, name='relu0')
+
+      # BN+relu后初始化完成
+      
       #body = mx.sym.Pooling(data=body, kernel=(3, 3), stride=(2,2), pad=(1,1), pool_type='max')
     elif version_input==2:
       data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data')
@@ -592,6 +611,12 @@ def get_symbol(num_classes, num_layers, **kwargs):
     else:
         raise ValueError("no experiments done on num_layers {}, you can do it yourself".format(num_layers))
 
+    # 传入的ResNet50的主要参数有(上述地址的最下面的那个函数)：
+    # 网络层数： num_layers = 50
+    # 卷积层的Unit： filter_list = [64, 64, 128, 256, 512]
+    # 没有1×1的filter： bottle_neck = False
+    # 网络有四个部分： num_stages = 4
+    # 四个部分分别是： [3, 4, 14, 3]
     return resnet(units       = units,
                   num_stages  = num_stages,
                   filter_list = filter_list,
