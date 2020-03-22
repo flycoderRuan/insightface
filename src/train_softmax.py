@@ -151,6 +151,7 @@ def parse_args():
 #计算CosFace Loss
 #将fc7和真值放入传统Softmax中输出得到结果
 def get_symbol(args, arg_params, aux_params):
+  print("1111111111:{}:{}:{}".format(args.version_output,args.version_se,args.version_input))
   data_shape = (args.image_channel,args.image_h,args.image_w)
   image_shape = ",".join([str(x) for x in data_shape])
   margin_symbols = []
